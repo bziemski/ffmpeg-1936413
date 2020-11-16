@@ -20,6 +20,7 @@
  */
 
 #include "libavutil/avassert.h"
+#include "libavutil/nw_log.h"
 #include "framequeue.h"
 
 static inline FFFrameBucket *bucket(FFFrameQueue *fq, size_t idx)
@@ -99,6 +100,11 @@ AVFrame *ff_framequeue_take(FFFrameQueue *fq)
 {
     FFFrameBucket *b;
 
+    //NW_delay_measurement_logging
+    // char ts_buf[256];
+    // get_nw_timestamp(ts_buf);
+    // av_log(NULL, AV_LOG_DEBUG, "%s [IN] ff_framequeue_take \n", ts_buf);
+    
     check_consistency(fq);
     av_assert1(fq->queued);
     b = bucket(fq, 0);
@@ -109,6 +115,11 @@ AVFrame *ff_framequeue_take(FFFrameQueue *fq)
     fq->total_samples_tail += b->frame->nb_samples;
     fq->samples_skipped = 0;
     check_consistency(fq);
+    //NW_delay_measurement_logging
+    // char ts_buf2[256];
+    // get_nw_timestamp(ts_buf2);
+    // av_log(NULL, AV_LOG_DEBUG, "%s [OUT] ff_framequeue_take : frame->pkt_pos=%ld pkt_pts=%ld pts=%ld pkt_dts=%ld pkt_size=%d\n", ts_buf2, b->frame->pkt_pos, b->frame->pkt_pts, b->frame->pts, b->frame->pkt_dts, b->frame->pkt_size);
+   
     return b->frame;
 }
 

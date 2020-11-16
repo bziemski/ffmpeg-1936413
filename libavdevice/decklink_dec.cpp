@@ -513,7 +513,9 @@ static unsigned long long avpacket_queue_size(AVPacketQueue *q)
 static int avpacket_queue_put(AVPacketQueue *q, AVPacket *pkt)
 {
     AVPacketList *pkt1;
-
+    //NW_delay_measurement_logging
+    av_log(q->avctx, AV_LOG_DEBUG, "avpacket_queue_put : Stream=%d pkt->pts=%d q_nb_packets=%ld pkt->size=%d pkt->dts=%d\n", pkt->stream_index, pkt->pts,  q->nb_packets, pkt->size, pkt->dts);
+    
     // Drop Packet if queue size is > maximum queue size
     if (avpacket_queue_size(q) > (uint64_t)q->max_q_size) {
         av_packet_unref(pkt);
@@ -580,6 +582,9 @@ static int avpacket_queue_get(AVPacketQueue *q, AVPacket *pkt, int block)
         }
     }
     pthread_mutex_unlock(&q->mutex);
+    //NW_delay_measurement_logging
+    av_log(q->avctx, AV_LOG_DEBUG, "avpacket_queue_get : Stream=%d pkt->pts=%d q_nb_packets=%ld pkt->dts=%d block=%d\n", pkt->stream_index,  pkt->pts, q->nb_packets, pkt->dts, block);
+    
     return ret;
 }
 
@@ -805,7 +810,10 @@ HRESULT decklink_input_callback::VideoInputFrameArrived(
 
         pkt.pts = get_pkt_pts(videoFrame, audioFrame, wallclock, abs_wallclock, ctx->video_pts_source, ctx->video_st->time_base, &initial_video_pts, cctx->copyts);
         pkt.dts = pkt.pts;
-
+        //NW_delay_measurement_logging
+        av_log(avctx, AV_LOG_DEBUG,
+                    "Frame received Frame=%lu q_nb_packets=%ld pkt_pts=%ld\n",
+                    ctx->frameCount-1, ctx->queue.nb_packets, pkt.pts);
         pkt.duration = frameDuration;
         //To be made sure it still applies
         pkt.flags       |= AV_PKT_FLAG_KEY;

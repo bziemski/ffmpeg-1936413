@@ -651,7 +651,10 @@ static int scale_slice(AVFilterLink *link, AVFrame *out_buf, AVFrame *cur_pic, s
 
 static int scale_frame(AVFilterLink *link, AVFrame *in, AVFrame **frame_out)
 {
+
     AVFilterContext *ctx = link->dst;
+    //NW_delay_measurement_logging
+    av_log(ctx, AV_LOG_DEBUG, "[IN] scale_frame : pkt_pts=%ld pkt_dts=%ld pkt_size=%d pts=%ld frame->pkt_pos=%ld \n", in->pkt_pts, in->pkt_dts, in->pkt_size, in->pts, in->pkt_pos);
     ScaleContext *scale = ctx->priv;
     AVFilterLink *outlink = ctx->outputs[0];
     AVFrame *out;
@@ -807,7 +810,10 @@ scale:
     } else {
         scale_slice(link, out, in, scale->sws, 0, link->h, 1, 0);
     }
-
+    // char ts_buf2[256];
+    // get_nw_timestamp(ts_buf2);
+    av_log(ctx, AV_LOG_DEBUG, "[OUT] scale_frame : pkt_pts=%ld pkt_dts=%ld pts=%ld frame->pkt_pos=%ld \n",  in->pkt_pts, in->pkt_dts, in->pts, in->pkt_pos);
+    
     av_frame_free(&in);
     return 0;
 }

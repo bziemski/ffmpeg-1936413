@@ -1074,6 +1074,8 @@ fail:
 
 int ff_filter_frame(AVFilterLink *link, AVFrame *frame)
 {
+    //NW_delay_measurement_logging
+    // av_log(link->src, AV_LOG_DEBUG, "NWFILTERING frame_pkt_pts=%ld queued_frames=%d dst-filter=%s current_pts=%ld frame_pts=%ld \n", frame->pkt_pts,  link->fifo.queued, link->dst->name, link->current_pts, frame->pts);
     int ret;
     FF_TPRINTF_START(NULL, filter_frame); ff_tlog_link(NULL, link, 1); ff_tlog(NULL, " "); ff_tlog_ref(NULL, frame, 1);
 

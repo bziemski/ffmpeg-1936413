@@ -34,6 +34,7 @@
 #include "libavutil/thread.h"
 #include "libavutil/time.h"
 #include "libavutil/timestamp.h"
+#include "libavutil/nw_log.h"
 
 #include "libavcodec/bytestream.h"
 #include "libavcodec/internal.h"
@@ -1864,7 +1865,16 @@ return_packet:
         pkt->dts -= RELATIVE_TS_BASE;
     if (is_relative(pkt->pts))
         pkt->pts -= RELATIVE_TS_BASE;
+    //NW_delay_measurement_logging
+    // if (pkt->stream_index == 0)
+    // {
+    //     static int read_frames = 0;
 
+    //     char ts_buf[256];
+    //     get_nw_timestamp(ts_buf);
+    //     av_log(NULL, AV_LOG_INFO, "%s Frame=%d Stream=%d read. pkt->dts=%d  pkt->pts=%d  pkt->size=%d\n", ts_buf, read_frames, pkt->stream_index, pkt->dts, pkt->pts, pkt->size);
+    //     read_frames++;
+    // }
     return ret;
 }
 

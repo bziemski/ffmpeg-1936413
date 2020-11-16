@@ -31,6 +31,7 @@
 #include "libavutil/opt.h"
 #include "libavutil/time.h"
 #include "libavutil/parseutils.h"
+#include "libavutil/nw_log.h"
 
 #include "avformat.h"
 #include "http.h"
@@ -381,8 +382,11 @@ int ff_http_do_new_request2(URLContext *h, const char *uri, AVDictionary **opts)
 
     if ((ret = av_opt_set_dict(s, opts)) < 0)
         return ret;
-
-    av_log(s, AV_LOG_INFO, "Opening \'%s\' for %s\n", uri, h->flags & AVIO_FLAG_WRITE ? "writing" : "reading");
+    //NW_delay_measurement_logging
+    char ts_buf[256];
+    get_nw_timestamp(ts_buf);
+    av_log(s, AV_LOG_INFO, "%s Opening \'%s\' for %s\n", ts_buf, uri, h->flags & AVIO_FLAG_WRITE ? "writing" : "reading");
+    
     ret = http_open_cnx(h, &options);
     av_dict_free(&options);
     return ret;

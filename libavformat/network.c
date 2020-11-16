@@ -485,8 +485,9 @@ int ff_connect_parallel(struct addrinfo *addrs, int timeout_ms_per_address,
                     getnameinfo(attempts[i].addr->ai_addr, attempts[i].addr->ai_addrlen,
                                 hostbuf, sizeof(hostbuf), portbuf, sizeof(portbuf),
                                 NI_NUMERICHOST | NI_NUMERICSERV);
+                    //NW_delay_measurement_logging
                     av_log(h, AV_LOG_VERBOSE, "Successfully connected to %s port %s\n",
-                                              hostbuf, portbuf);
+                           hostbuf, portbuf);
                     return 0;
                 }
             }

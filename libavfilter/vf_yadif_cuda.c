@@ -126,7 +126,9 @@ static void filter(AVFilterContext *ctx, AVFrame *dst,
     CudaFunctions *cu = s->hwctx->internal->cuda_dl;
     CUcontext dummy;
     int i, ret;
-
+    //NW_delay_measurement_logging
+    // av_log(ctx, AV_LOG_DEBUG, "%s yadif_cuda_filter : frame->pkt_pos=%ld pkt_pts=%ld pkt_dts=%ld\n", ts_buf, dst->pkt_pos, dst->pkt_pts, dst->pkt_dts);
+    
     ret = CHECK_CU(cu->cuCtxPushCurrent(s->cu_ctx));
     if (ret < 0)
         return;

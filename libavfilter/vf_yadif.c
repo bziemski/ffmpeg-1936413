@@ -229,6 +229,8 @@ static int filter_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
 static void filter(AVFilterContext *ctx, AVFrame *dstpic,
                    int parity, int tff)
 {
+    //NW_delay_measurement_logging
+    av_log(ctx, AV_LOG_DEBUG, "[IN] pkt_pts=%ld pkt_dts=%ld pts=%ld frame->pkt_pos=%ld \n", dstpic->pkt_pts, dstpic->pkt_dts, dstpic->pts, dstpic->pkt_pos);
     YADIFContext *yadif = ctx->priv;
     ThreadData td = { .frame = dstpic, .parity = parity, .tff = tff };
     int i;
@@ -249,7 +251,8 @@ static void filter(AVFilterContext *ctx, AVFrame *dstpic,
 
         ctx->internal->execute(ctx, filter_slice, &td, NULL, FFMIN(h, ff_filter_get_nb_threads(ctx)));
     }
-
+    //NW_delay_measurement_logging
+    av_log(ctx, AV_LOG_DEBUG, "[OUT] pkt_pts=%ld pkt_dts=%ld pts=%ld frame->pkt_pos=%ld \n", dstpic->pkt_pts, dstpic->pkt_dts, dstpic->pts, dstpic->pkt_pos);
     emms_c();
 }
 

@@ -63,6 +63,7 @@
 #include "libavutil/time.h"
 #include "libavutil/thread.h"
 #include "libavutil/threadmessage.h"
+#include "libavutil/nw_log.h"
 #include "libavcodec/mathops.h"
 #include "libavformat/os_support.h"
 
@@ -1674,6 +1675,12 @@ static void print_report(int is_last_report, int64_t timer_start, int64_t cur_ti
     vid = 0;
     av_bprint_init(&buf, 0, AV_BPRINT_SIZE_AUTOMATIC);
     av_bprint_init(&buf_script, 0, AV_BPRINT_SIZE_AUTOMATIC);
+
+    //NW_delay_measurement_logging
+    char ts_buf[256];
+    get_nw_timestamp(ts_buf);
+    av_bprintf(&buf, "%s", ts_buf);
+    av_bprintf(&buf_script, "%s", ts_buf);
     for (i = 0; i < nb_output_streams; i++) {
         float q = -1;
         ost = output_streams[i];
@@ -2398,7 +2405,11 @@ static int decode_video(InputStream *ist, AVPacket *pkt, int *got_output, int64_
 
     if(ist->top_field_first>=0)
         decoded_frame->top_field_first = ist->top_field_first;
-
+        
+    //NW_delay_measurement_logging
+    char ts_buf[256];
+    get_nw_timestamp(ts_buf);
+    av_log(NULL, AV_LOG_DEBUG, "%s Frame=%ld Stream=%d decoded. pkt->pts=%d pkt->size=%d pkt->dts=%d \n", ts_buf, ist->frames_decoded, pkt->stream_index, pkt->pts, pkt->size, pkt->dts);
     ist->frames_decoded++;
 
     if (ist->hwaccel_retrieve_data && decoded_frame->format == ist->hwaccel_pix_fmt) {

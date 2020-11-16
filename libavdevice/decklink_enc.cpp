@@ -430,6 +430,11 @@ done:
 
 static int decklink_write_video_packet(AVFormatContext *avctx, AVPacket *pkt)
 {
+    // char ts_buf[256];
+    // get_nw_timestamp(ts_buf);
+    //NW_delay_measurement_logging
+    // av_log(NULL, AV_LOG_DEBUG, "decklink_write_video_packet\n");
+    
     struct decklink_cctx *cctx = (struct decklink_cctx *)avctx->priv_data;
     struct decklink_ctx *ctx = (struct decklink_ctx *)cctx->ctx;
     AVStream *st = avctx->streams[pkt->stream_index];

@@ -40,6 +40,7 @@
 #include "internal.h"
 #include "log.h"
 #include "thread.h"
+#include "nw_log.h"
 
 static AVMutex mutex = AV_MUTEX_INITIALIZER;
 
@@ -309,8 +310,11 @@ static void format_line(void *avcl, int level, const char *fmt, va_list vl,
                 if(type) type[0] = get_category(parent);
             }
         }
-        av_bprintf(part+1, "[%s @ %p] ",
-                 avc->item_name(avcl), avcl);
+        char buf[256];
+        get_nw_timestamp(buf);
+        av_bprintf(part + 1, "%s [%s @ %p] ", buf,
+                   avc->item_name(avcl), avcl);
+        
         if(type) type[1] = get_category(avcl);
     }
 

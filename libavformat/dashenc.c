@@ -35,6 +35,7 @@
 #include "libavutil/rational.h"
 #include "libavutil/time.h"
 #include "libavutil/time_internal.h"
+// #include "libavutil/nw_log.h"
 
 #include "av1.h"
 #include "avc.h"
@@ -2048,6 +2049,11 @@ static int dash_write_packet(AVFormatContext *s, AVPacket *pkt)
     AdaptationSet *as = &c->as[os->as_idx - 1];
     int64_t seg_end_duration, elapsed_duration;
     int ret;
+
+    //NW_delay_measurement_logging
+    // char ts_buf[256];
+    // get_nw_timestamp(ts_buf);
+    // av_log(NULL, AV_LOG_DEBUG, "%s Frame=%ld Stream=%d dash write packet \n", ts_buf, st->nb_frames, pkt->stream_index);
 
     ret = update_stream_extradata(s, os, pkt, &st->avg_frame_rate);
     if (ret < 0)
