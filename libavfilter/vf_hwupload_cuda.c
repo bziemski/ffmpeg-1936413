@@ -124,7 +124,9 @@ static int cudaupload_filter_frame(AVFilterLink *link, AVFrame *in)
 {
     AVFilterContext   *ctx = link->dst;
     AVFilterLink  *outlink = ctx->outputs[0];
-
+    //NW_delay_measurement_logging
+    av_log(ctx, AV_LOG_DEBUG, "[IN] pkt_pts=%ld pkt_dts=%ld pts=%ld \n", in->pkt_pts, in->pkt_dts, in->pts);
+    
     AVFrame *out = NULL;
     int ret;
 
@@ -146,9 +148,11 @@ static int cudaupload_filter_frame(AVFilterLink *link, AVFrame *in)
     ret = av_frame_copy_props(out, in);
     if (ret < 0)
         goto fail;
-
+    //NW_delay_measurement_logging
+    av_log(ctx, AV_LOG_DEBUG, "[OUT] pkt_pts=%ld pkt_dts=%ld pts=%ld \n", in->pkt_pts, in->pkt_dts, in->pts);
+    
     av_frame_free(&in);
-
+    
     return ff_filter_frame(ctx->outputs[0], out);
 fail:
     av_frame_free(&in);

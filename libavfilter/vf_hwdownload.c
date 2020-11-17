@@ -129,6 +129,9 @@ static int hwdownload_filter_frame(AVFilterLink *link, AVFrame *input)
     HWDownloadContext *ctx = avctx->priv;
     AVFrame *output = NULL;
     int err;
+    //NW_delay_measurement_logging
+    av_log(avctx, AV_LOG_DEBUG, "[IN] pkt_pts=%ld pkt_dts=%ld pts=%ld \n", input->pkt_pts, input->pkt_dts, input->pts);
+    
 
     if (!ctx->hwframes_ref || !input->hw_frames_ctx) {
         av_log(ctx, AV_LOG_ERROR, "Input frames must have hardware context.\n");

@@ -810,8 +810,7 @@ scale:
     } else {
         scale_slice(link, out, in, scale->sws, 0, link->h, 1, 0);
     }
-    // char ts_buf2[256];
-    // get_nw_timestamp(ts_buf2);
+    //NW_delay_measurement_logging
     av_log(ctx, AV_LOG_DEBUG, "[OUT] scale_frame : pkt_pts=%ld pkt_dts=%ld pts=%ld frame->pkt_pos=%ld \n",  in->pkt_pts, in->pkt_dts, in->pts, in->pkt_pos);
     
     av_frame_free(&in);

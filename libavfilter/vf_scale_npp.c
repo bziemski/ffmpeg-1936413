@@ -469,7 +469,10 @@ static int nppscale_scale(AVFilterContext *ctx, AVFrame *out, AVFrame *in)
     NPPScaleContext *s = ctx->priv;
     AVFrame *src = in;
     int i, ret, last_stage = -1;
-
+    //NW_delay_measurement_logging
+    av_log(ctx, AV_LOG_DEBUG, "[IN] scale_frame : pkt_pts=%ld pkt_dts=%ld pkt_size=%d pts=%ld frame->pkt_pos=%ld \n", in->pkt_pts, in->pkt_dts, in->pkt_size, in->pts, in->pkt_pos);
+    // av_log(ctx, AV_LOG_DEBUG, "npp scale : pkt_pts=%ld pkt_dts=%ld\n", in->pkt_pts, in->pkt_dts);
+    
     for (i = 0; i < FF_ARRAY_ELEMS(s->stages); i++) {
         if (!s->stages[i].stage_needed)
             continue;
@@ -494,7 +497,9 @@ static int nppscale_scale(AVFilterContext *ctx, AVFrame *out, AVFrame *in)
     ret = av_frame_copy_props(out, in);
     if (ret < 0)
         return ret;
-
+    //NW_delay_measurement_logging
+    av_log(ctx, AV_LOG_DEBUG, "[OUT] scale_frame : pkt_pts=%ld pkt_dts=%ld pts=%ld frame->pkt_pos=%ld \n",  in->pkt_pts, in->pkt_dts, in->pts, in->pkt_pos);
+    
     return 0;
 }
 

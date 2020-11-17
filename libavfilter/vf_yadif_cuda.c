@@ -127,8 +127,7 @@ static void filter(AVFilterContext *ctx, AVFrame *dst,
     CUcontext dummy;
     int i, ret;
     //NW_delay_measurement_logging
-    // av_log(ctx, AV_LOG_DEBUG, "%s yadif_cuda_filter : frame->pkt_pos=%ld pkt_pts=%ld pkt_dts=%ld\n", ts_buf, dst->pkt_pos, dst->pkt_pts, dst->pkt_dts);
-    
+    av_log(ctx, AV_LOG_DEBUG, "[IN] pkt_pts=%ld pkt_dts=%ld pts=%ld frame->pkt_pos=%ld \n", dst->pkt_pts, dst->pkt_dts, dst->pts, dst->pkt_pos);
     ret = CHECK_CU(cu->cuCtxPushCurrent(s->cu_ctx));
     if (ret < 0)
         return;
@@ -181,6 +180,9 @@ static void filter(AVFilterContext *ctx, AVFrame *dst,
                     dst->linesize[i] / comp->step,
                     parity, tff);
     }
+    
+    //NW_delay_measurement_logging
+    av_log(ctx, AV_LOG_DEBUG, "[OUT] pkt_pts=%ld pkt_dts=%ld pts=%ld frame->pkt_pos=%ld \n", dst->pkt_pts, dst->pkt_dts, dst->pts, dst->pkt_pos);
 
 exit:
     CHECK_CU(cu->cuCtxPopCurrent(&dummy));
