@@ -643,6 +643,8 @@ static int randomize(uint8_t *buf, int len)
 static int do_encrypt(AVFormatContext *s, VariantStream *vs)
 {
     HLSContext *hls = s->priv_data;
+    //NW_delay_measurement_logging
+    // av_log(hls, AV_LOG_DEBUG, "[IN] do_encrypt \n");
     int ret;
     int len;
     AVIOContext *pb;
@@ -710,6 +712,8 @@ static int do_encrypt(AVFormatContext *s, VariantStream *vs)
         avio_write(pb, key, KEYSIZE);
         avio_close(pb);
     }
+    //NW_delay_measurement_logging
+    av_log(hls, AV_LOG_DEBUG, "[OUT] do_encrypt \n");
     return 0;
 }
 
@@ -2346,8 +2350,10 @@ static int hls_write_packet(AVFormatContext *s, AVPacket *pkt)
 
     }
 
-    if (vs->packets_written && can_split && av_compare_ts(pkt->pts - vs->start_pts, st->time_base,
+    if (vs->packets_written && can_split && av_compare_ts(pkt->pts - vs->start_pts + pkt->duration, st->time_base,
                                                           end_pts, AV_TIME_BASE_Q) >= 0) {
+    // if (vs->packets_written && can_split && av_compare_ts(pkt->pts - vs->start_pts, st->time_base,
+    //                                                       end_pts, AV_TIME_BASE_Q) >= 0) {
         int64_t new_start_pos;
         int byterange_mode = (hls->flags & HLS_SINGLE_FILE) || (hls->max_seg_size > 0);
 
