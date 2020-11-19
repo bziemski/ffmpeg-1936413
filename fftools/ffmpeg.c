@@ -1266,6 +1266,9 @@ static void do_video_out(OutputFile *of,
         }
 
         update_benchmark(NULL);
+        //NW_delay_measurement_logging
+        av_log(enc, AV_LOG_DEBUG, "[IN] Frame=%ld \n", in_picture->pts);
+
         if (debug_ts) {
             av_log(NULL, AV_LOG_INFO, "encoder <- type:video "
                    "frame_pts:%s frame_pts_time:%s time_base:%d/%d\n",
@@ -1288,6 +1291,9 @@ static void do_video_out(OutputFile *of,
                 break;
             if (ret < 0)
                 goto error;
+            
+            //NW_delay_measurement_logging
+            av_log(enc, AV_LOG_DEBUG, "[OUT] Frame=%ld pkt_dts=%ld \n", pkt.pts, pkt.dts);
 
             if (debug_ts) {
                 av_log(NULL, AV_LOG_INFO, "encoder -> type:video "
