@@ -1,0 +1,17 @@
+./configure --disable-everything --disable-doc --enable-protocol=file,http,https,pipe --enable-gnutls --enable-decklink --enable-indev=decklink --enable-outdev=decklink --extra-cflags='-I/home/nativewaves/decklink/Blackmagic_DeckLink_SDK_11.5.1/Linux/include' --disable-cuvid --disable-nvdec --disable-vdpau --enable-nonfree --enable-encoder=pcm_s16le,rawvideo,wrapped_avframe --enable-muxer=aac,mp3,mp4,matroska,rawvideo,null --enable-filter=aresample,scale --enable-decoder=h264,hevc,aac,mp3,pcm_s16le,rawvideo,wrapped_avframe --enable-demuxer=aac,mp3,h264,hevc,mov,matroska,hls,rawvideo,mpegts --enable-parser=aac,mp3,h264,hevc --enable-muxer=tee --enable-filter=split,cue --enable-muxer=fifo --enable-gpl 
+
+
+https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/$latest/formats/hls/master.m3u8
+
+
+./ffmpeg -loglevel debug -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/162609338156439574f288a287bc3/formats/hls/master.m3u8 -vf cue=buffer=0:cue=`echo "($(date +%s)+10)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
+
+
+./ffmpeg -loglevel debug -f hls -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/162609338156439574f288a287bc3/formats/hls/1080p25/index.m3u8 -vf cue=buffer=10:cue=`echo "($(date +%s)+11)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
+
+
+./ffmpeg -loglevel debug -f hls -live_start_index 220 -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/\$latest/formats/hls/1080p25/index.m3u8 -vf cue=buffer=0:cue=`echo "($(date +%s)+10)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
+
+
+
+https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/162609338156439574f288a287bc3/formats/hls/master.m3u8
