@@ -7,7 +7,7 @@ https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687
 ./ffmpeg -loglevel debug -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/162609338156439574f288a287bc3/formats/hls/master.m3u8 -vf cue=buffer=0:cue=`echo "($(date +%s)+10)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
 
 
-./ffmpeg -loglevel debug -f hls -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/162609338156439574f288a287bc3/formats/hls/1080p25/index.m3u8 -vf cue=buffer=10:cue=`echo "($(date +%s)+11)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
+./ffmpeg -loglevel warning -f hls -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/162609338156439574f288a287bc3/formats/hls/1080p25/index.m3u8 -an -vf cue=buffer=10:cue=`echo "($(date +%s)+15)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
 
 
 ./ffmpeg -loglevel debug -f hls -live_start_index 220 -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/\$latest/formats/hls/1080p25/index.m3u8 -vf cue=buffer=0:cue=`echo "($(date +%s)+10)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
@@ -15,3 +15,16 @@ https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687
 
 
 https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/162609338156439574f288a287bc3/formats/hls/master.m3u8
+
+
+
+./ffmpeg -loglevel warning -f hls -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/\$latest/formats/hls/1080p25/index.m3u8 -an -vf cue=buffer=0:cue=`echo "($(date +%s)+10)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
+
+
+./ffmpeg -loglevel warning -f hls -live_start_index 0 -i https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/\$latest/formats/hls/1080p25/index.m3u8 -an -vf cue=buffer=0:cue=`echo "($(date +%s)+10)*1000000" | bc` -pix_fmt uyvy422 -f decklink decklink1
+
+
+
+
+
+
