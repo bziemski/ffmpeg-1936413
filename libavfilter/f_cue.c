@@ -54,91 +54,119 @@ static int activate(AVFilterContext *ctx)
     CueContext *s = ctx->priv;
     static int nw_dirty_state = 0;
     FF_FILTER_FORWARD_STATUS_BACK(outlink, inlink);
-
+    static int coded_picture_number_base = 0;
+    static int display_picture_number_base = 0;
+    static int64_t pts_base = 0;
     if (ff_inlink_queued_frames(inlink)) {
-        AVFrame *frame = ff_inlink_peek_frame(inlink, 0);
-        int64_t pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
+        // AVFrame *frame = ff_inlink_peek_frame(inlink, 0);
+        AVFrame *frame;
+        // int64_t pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
         // char ts_buf[256];
         // get_nw_timestamp(ts_buf);
 
+        int ret2 = ff_inlink_consume_frame(inlink, &frame);
         
+        if(ret2<0){
+            av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
+        }
+        av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Consumed frame pts= %ld \n", frame->pts);
 
-        if (!s->status) {
-            char buf[64];
-            to_date(s->cue, buf);
-            av_log(ctx, AV_LOG_WARNING, "STATE 0 %s \n", buf);
-            s->first_pts = pts;
-            s->status++;
-        }
-        if (s->status == 1) {
-            if(nw_dirty_state==0){
-                char buf[64];
-                to_date(s->cue, buf);
-                av_log(ctx, AV_LOG_WARNING, "STATE 1 %s \n", buf);
+        if (av_gettime() >= s->cue){
+            if(coded_picture_number_base == 0){
+                coded_picture_number_base = frame->coded_picture_number;
             }
-            
-            if (pts - s->first_pts < s->preroll) {
-                av_log(ctx, AV_LOG_WARNING, "consuming preroll frame: %d \n", frame->coded_picture_number);
+            if(display_picture_number_base == 0){
+                display_picture_number_base = frame->display_picture_number;
+            } 
+            if(pts_base == 0){
+                pts_base = frame->pts;
+            }
 
-                int ret = ff_inlink_consume_frame(inlink, &frame);
-                if (ret < 0)
-                    return ret;
-                return ff_filter_frame(outlink, frame);
-            }
-            s->first_pts = pts;
-            s->status++;
-            nw_dirty_state=1;
-        }
-        AVFrame *frame2;
-        if (s->status == 2) {
-            if(nw_dirty_state==1){
-                char buf[64];
-                to_date(s->cue, buf);
-                av_log(ctx, AV_LOG_WARNING, "STATE 2 %s \n", buf);
-                av_log(ctx, AV_LOG_WARNING, "Buffer: %ld\n", s->buffer);
-            }
-            frame = ff_inlink_peek_frame(inlink, ff_inlink_queued_frames(inlink) - 1);
+
+            frame->coded_picture_number -= coded_picture_number_base; 
+            frame->display_picture_number -= display_picture_number_base;
+            frame->pts -= pts_base;
+            av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Returns frame pts= %ld  \n", frame->pts);
             
-            int ret2 = ff_inlink_consume_frame(inlink, &frame2);
-            if(ret2<0){
-                av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
-            }
-            pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
-            av_log(ctx, AV_LOG_WARNING, "pts: %ld first_pts: %ld \n", pts, s->first_pts);
-            if (!(pts - s->first_pts < s->buffer && (av_gettime() - s->cue) < 0))
-                s->status++;
-            nw_dirty_state=2;
+            return ff_filter_frame(outlink, frame);
         }
-        if (s->status == 3) {
-            if(nw_dirty_state==2){
-                char buf[64];
-                to_date(s->cue, buf);
-                av_log(ctx, AV_LOG_WARNING, "STATE 3 %s \n", buf);
-            }
-            int64_t diff;
-            while ((diff = (av_gettime() - s->cue)) < 0)
-                av_usleep(av_clip(-diff / 2, 100, 1000000));
-            s->status++;
-            nw_dirty_state=3;
-        }
-        if (s->status == 4) {
-            if(nw_dirty_state==3){
-                char buf[64];
-                to_date(s->cue, buf);
-                av_log(ctx, AV_LOG_WARNING, "STATE 4 %s \n", buf);
-                pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
-                av_log(ctx, AV_LOG_WARNING, "Frame: %d pts: %ld\n", frame->coded_picture_number, pts);
+        // if (!s->status) {
+        //     char buf[64];
+        //     to_date(s->cue, buf);
+        //     av_log(ctx, AV_LOG_WARNING, "STATE 0 %s \n", buf);
+        //     s->first_pts = pts;
+        //     s->status++;
+        // }
+        // if (s->status == 1) {
+        //     if(nw_dirty_state==0){
+        //         char buf[64];
+        //         to_date(s->cue, buf);
+        //         av_log(ctx, AV_LOG_WARNING, "STATE 1 %s \n", buf);
+        //     }
             
-            }
-            else{
-                int ret = ff_inlink_consume_frame(inlink, &frame2);
-                if (ret < 0)
-                    return ret;
-            }
+        //     if (pts - s->first_pts < s->preroll) {
+        //         av_log(ctx, AV_LOG_WARNING, "consuming preroll frame: %d \n", frame->coded_picture_number);
+
+        //         int ret = ff_inlink_consume_frame(inlink, &frame);
+        //         if (ret < 0)
+        //             return ret;
+        //         return ff_filter_frame(outlink, frame);
+        //     }
+        //     s->first_pts = pts;
+        //     s->status++;
+        //     nw_dirty_state=1;
+        // }
+        // AVFrame *frame2;
+        // if (s->status == 2) {
+        //     if(nw_dirty_state==1){
+        //         char buf[64];
+        //         to_date(s->cue, buf);
+        //         av_log(ctx, AV_LOG_WARNING, "STATE 2 %s \n", buf);
+        //         av_log(ctx, AV_LOG_WARNING, "Buffer: %ld\n", s->buffer);
+        //     }
+        //     frame = ff_inlink_peek_frame(inlink, ff_inlink_queued_frames(inlink) - 1);
             
-            nw_dirty_state=4;
-            return ff_filter_frame(outlink, frame2);
-        }
+        //     int ret2 = ff_inlink_consume_frame(inlink, &frame2);
+        //     if(ret2<0){
+        //         av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
+        //     }
+        //     pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
+        //     av_log(ctx, AV_LOG_WARNING, "pts: %ld first_pts: %ld \n", pts, s->first_pts);
+        //     if (!(pts - s->first_pts < s->buffer && (av_gettime() - s->cue) < 0))
+        //         s->status++;
+        //     nw_dirty_state=2;
+        // }
+        // if (s->status == 3) {
+        //     if(nw_dirty_state==2){
+        //         char buf[64];
+        //         to_date(s->cue, buf);
+        //         av_log(ctx, AV_LOG_WARNING, "STATE 3 %s \n", buf);
+        //     }
+        //     int64_t diff;
+        //     while ((diff = (av_gettime() - s->cue)) < 0)
+        //         av_usleep(av_clip(-diff / 2, 100, 1000000));
+        //     s->status++;
+        //     nw_dirty_state=3;
+        // }
+        // if (s->status == 4) {
+        //     if(nw_dirty_state==3){
+        //         char buf[64];
+        //         to_date(s->cue, buf);
+        //         av_log(ctx, AV_LOG_WARNING, "STATE 4 %s \n", buf);
+        //         pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
+        //         av_log(ctx, AV_LOG_WARNING, "Frame: %d pts: %ld\n", frame->coded_picture_number, pts);
+        //         FF_FILTER_FORWARD_STATUS(inlink, outlink);
+        //         FF_FILTER_FORWARD_WANTED(outlink, inlink);
+        //     }
+        //     else{
+        //         int ret = ff_inlink_consume_frame(inlink, &frame2);
+        //         if (ret < 0)
+        //             return ret;
+        //     }
+            
+        //     nw_dirty_state=4;
+        //     return ff_filter_frame(outlink, frame2);
+        // }
     }
 
     FF_FILTER_FORWARD_STATUS(inlink, outlink);
