@@ -57,21 +57,27 @@ static int activate(AVFilterContext *ctx)
     static int coded_picture_number_base = 0;
     static int display_picture_number_base = 0;
     static int64_t pts_base = 0;
+    
+    int64_t cue_startpoint = s->cue - 1000000 * 1;
     if (ff_inlink_queued_frames(inlink)) {
+        static int64_t last_invoke = 0;
+        if(last_invoke != 0){
+            av_log(ctx, AV_LOG_WARNING, "elapsed= %ld \n", av_gettime() - last_invoke);
+        }
+        last_invoke = av_gettime();
         // AVFrame *frame = ff_inlink_peek_frame(inlink, 0);
         AVFrame *frame;
         // int64_t pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
         // char ts_buf[256];
         // get_nw_timestamp(ts_buf);
-
-        int ret2 = ff_inlink_consume_frame(inlink, &frame);
-        
-        if(ret2<0){
-            av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
-        }
-        av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Consumed frame pts= %ld \n", frame->pts);
-
-        if (av_gettime() >= s->cue){
+        char buf[64];
+        to_date(cue_startpoint, buf);
+        av_log(ctx, AV_LOG_WARNING, "cue_startpoint= %s \n", buf);
+        char buf2[64];
+        to_date(av_gettime(), buf2);
+        av_log(ctx, AV_LOG_WARNING, "av_gettime= %s \n", buf2);
+        if(av_gettime() >= cue_startpoint){
+            frame = ff_inlink_peek_frame(inlink, ff_inlink_queued_frames(inlink) - 1);
             if(coded_picture_number_base == 0){
                 coded_picture_number_base = frame->coded_picture_number;
             }
@@ -81,15 +87,35 @@ static int activate(AVFilterContext *ctx)
             if(pts_base == 0){
                 pts_base = frame->pts;
             }
-
-
+            av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Original frame pts= %ld pts_base = %ld pkt_pos = %ld best_effort_timestamp = %ld pkt_dts = %ld coded_picture_number = %d display_picture_number = %d\n", frame->pts, pts_base, frame->pkt_pos, frame->best_effort_timestamp, frame->pkt_dts, frame->coded_picture_number, frame->display_picture_number);
             frame->coded_picture_number -= coded_picture_number_base; 
             frame->display_picture_number -= display_picture_number_base;
             frame->pts -= pts_base;
-            av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Returns frame pts= %ld  \n", frame->pts);
-            
-            return ff_filter_frame(outlink, frame);
+            if (av_gettime() >= s->cue){
+                int ret2 = ff_inlink_consume_frame(inlink, &frame);  //Takes first frame from the buffer 
+
+                if(ret2<0){
+                    av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
+                }
+                // reading pts based on given segment index -> discurding everything till specific frame and displaying this frame in specific time
+
+                av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Returns frame pts= %ld  \n", frame->pts);
+
+                return ff_filter_frame(outlink, frame);
+            }
         }
+        else{
+            int ret2 = ff_inlink_consume_frame(inlink, &frame);
+        
+            if(ret2<0){
+                av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
+            }
+        }
+
+        // av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] %ld %ld \n", s->cue, cue_startpoint);
+        
+
+        
         // if (!s->status) {
         //     char buf[64];
         //     to_date(s->cue, buf);
