@@ -1,10 +1,14 @@
 import subprocess
 from datetime import datetime, timedelta
 import time
+import sys
 
-loglevel = "warning"
+loglevel = "debug"
 stream_url = "https://showcase-content.cdn.dev.nativewaves.com/streams/f2d6b85363864e9dbb48687030372a6a/sessions/$latest/formats/hls/1080p25/index.m3u8"
 output = "decklink1"
+
+if len(sys.argv)>1:
+    output = sys.argv[1]
 
 segment_length_s = 3
 segment_length_ms = segment_length_s * 1000000
@@ -12,8 +16,11 @@ fps = 25
 
 
 
-target_index = 4112
-target_time = datetime(2021,7,13,15,30,0,0)
+target_index = 29
+target_time = datetime(2021,7,14,13,30,0,0)
+
+
+
 target_frame = target_index * segment_length_s * fps
 
 
@@ -33,7 +40,7 @@ time_difference_s = time_difference.total_seconds()
 time_difference_ms = time_difference_s*1000000
 
 segments_difference = time_difference_ms / segment_length_ms
-start_index = int(target_index + segments_difference) - 0  # should be adjusted based on segment duration (e.g. should start 1 second before)
+start_index = int(target_index + segments_difference) - 15  # should be adjusted based on segment duration (e.g. should start 1 second before)
 
 
 print("time_difference_s: " + str(time_difference_s))
