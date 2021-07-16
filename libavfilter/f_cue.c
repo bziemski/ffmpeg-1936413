@@ -35,7 +35,6 @@ typedef struct CueContext {
     int status;
 } CueContext;
 
-// int64_t cue_offset = 0;
 
 static void to_date(int64_t ts, char* res){
     time_t t = ts/1000000;
@@ -50,12 +49,9 @@ static void to_date(int64_t ts, char* res){
 }
 
 
-// void discard_frame()
 
 static int activate(AVFilterContext *ctx)
 {
-    // nw_set(5);
-    // ctx->inputs[0].
     AVFilterLink *inlink = ctx->inputs[0];
     
     AVFilterLink *outlink = ctx->outputs[0];
@@ -65,85 +61,60 @@ static int activate(AVFilterContext *ctx)
     FF_FILTER_FORWARD_STATUS_BACK(outlink, inlink);
     static int coded_picture_number_base = 0;
     static int display_picture_number_base = 0;
+    static int64_t pts_base = 0;
+
+    static int64_t start_position = -2;
+
+    static int output_started = 0;
+    
+    if(start_position == -2){
+        start_position = s->buffer  * inlink->time_base.den / inlink->time_base.num / 1000000; //TODO: Check that
+    }
+    //TODO: If start_position is set to -1, just start forwarding frames at cue time
+
 
     static int buffered_frames = 0;
-    static int64_t pts_base = 0;
-    static int discarded = 0;
-    static int64_t frames_to_discard = -2;
-    if(frames_to_discard == -2){
-        frames_to_discard = s->buffer;
-    }
-    static int64_t hls_start_shift = -1;
-    if(hls_start_shift == -1){
-        hls_start_shift = nw_get();
-        int64_t hls_start_shift_frames = hls_start_shift * inlink->frame_rate.num / inlink->frame_rate.den / 1000000;
-        av_log(ctx, AV_LOG_ERROR, "hls_start_shift = %ld = %ld frames \n", hls_start_shift, hls_start_shift_frames);
-        // frames_to_discard += hls_start_shift_frames;
-        s->cue -= hls_start_shift;
-        // s->cue -= inlink->frame_rate.den / inlink->frame_rate.num * 1000000 / 2 ; //If less than half frame to cue then should already process 
-        char buf[64];
-        to_date(s->cue, buf);
-        av_log(ctx, AV_LOG_ERROR, "new cue= %s %ld\n", buf, s->cue);
-
-        // s->buffer = s->buffer*2;
-    }
-
     
-    
-    // int64_t cue_startpoint = s->cue - 1000000 * 1;
     if (ff_inlink_queued_frames(inlink)) {
-        //TODO: Rewrite to use states and move static variables to CueContext
-
+        
         AVFrame *frame;
-        // int64_t pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
-        // char ts_buf[256];
-        // get_nw_timestamp(ts_buf);
-        char buf[64];
-        to_date(s->cue, buf);
-        av_log(ctx, AV_LOG_WARNING, "cue= %s \n", buf);
-        char buf2[64];
-        to_date(av_gettime(), buf2);
-        av_log(ctx, AV_LOG_WARNING, "av_gettime= %s \n", buf2);
-        // if(av_gettime() >= cue_startpoint){
-        
-        //TODO: Add frames_to_discard == -1 handling 
-        
-        // if(frames_to_discard >0){
+        AVFrame *frame3;
+
+        av_log(ctx, AV_LOG_WARNING, "++++++++++++++++++++++++++++++++++++\n", buffered_frames);
+        for(int i =0; i< ff_inlink_queued_frames(inlink); i++){
+            frame3 = ff_inlink_peek_frame(inlink, i);
+            av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] %ld %p\n", frame3->pts, frame3);
+        }
+    
         frame = ff_inlink_peek_frame(inlink, ff_inlink_queued_frames(inlink) - 1);
-        if(frames_to_discard -1 >= frame->coded_picture_number){
+       
+        av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] Original frame pts= %ld %p \n", frame->pts, frame);
+                
+       
+        if(frame->pts < start_position && !output_started){
+            av_log(ctx, AV_LOG_WARNING, "Got frame pts=%ld Waiting for %ld\n", frame->pts, start_position);
+            int64_t peeked_frame = frame->pts;
             int ret2 = ff_inlink_consume_frame(inlink, &frame);
             if(ret2<0){
-                av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
+                av_log(ctx, AV_LOG_ERROR, "Consume failed \n");
             }
-            av_log(ctx, AV_LOG_ERROR, "Discarded frame pts=%ld format=%d index=%d\n", frame->pts, frame->format, frame->coded_picture_number);
-
-
-            //TODO: Check discarded frames -> calculate difference in pts between first and second 
-        
-            //TODO: Should check if the frame is relevant
-            // frames_to_discard--;
-            av_log(ctx, AV_LOG_WARNING, "frames_to_discard: %ld \n", frames_to_discard);
+            av_log(ctx, AV_LOG_WARNING, "Discarded frame pts=%ld index=%d\n", frame->pts, frame->coded_picture_number);
+            if(peeked_frame != frame->pts){
+                av_log(ctx, AV_LOG_ERROR, "Discarded wrong frame! Peeked frame pts %ld and discarded %ld \n", peeked_frame, frame->pts);
+            }
         }
         else{
-
-            //TODO: If reached cue with no buffered frames should adjust playback (discard more frames and change pts)
-            //TODO: Return frame only if enough frames buffered -> maybe this logic should not be done by filter but by setting correct filter arguments
-            
-            av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] buffered frames: %d \n", buffered_frames);
-            if(buffered_frames == 0 && av_gettime() >= s->cue){
-                av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] No frames buffered. Video can play delayed! Time behind: %ld s", (av_gettime()-s->cue));
-                av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] cue before: %ld", s->cue);
-                
+            if(!output_started && buffered_frames == 0 && av_gettime() >= s->cue){
+                av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] No frames buffered. Video can play delayed! Time behind: %ld Will try to catch...\n", (av_gettime()-s->cue));
                 s->cue += 1000000 * inlink->frame_rate.den / inlink->frame_rate.num;
-                av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] cue after: %ld", s->cue);
+                start_position += inlink->time_base.den * inlink->frame_rate.den / inlink->frame_rate.num / inlink->time_base.num;
                 int ret2 = ff_inlink_consume_frame(inlink, &frame);
                 if(ret2<0){
-                    av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
+                    av_log(ctx, AV_LOG_ERROR, "Consume failed \n");
                 }
             }
             else{
 
-                frame = ff_inlink_peek_frame(inlink, ff_inlink_queued_frames(inlink) - 1);
                 if(coded_picture_number_base == 0){
                     coded_picture_number_base = frame->coded_picture_number;
                 }
@@ -154,37 +125,60 @@ static int activate(AVFilterContext *ctx)
                     pts_base = frame->pts;
                 }
                 av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Original frame pts= %ld pts_base = %ld pkt_pos = %ld best_effort_timestamp = %ld pkt_dts = %ld coded_picture_number = %d display_picture_number = %d\n", frame->pts, pts_base, frame->pkt_pos, frame->best_effort_timestamp, frame->pkt_dts, frame->coded_picture_number, frame->display_picture_number);
-                frame->coded_picture_number -= coded_picture_number_base; 
-                frame->display_picture_number -= display_picture_number_base;
-                frame->pts -= pts_base;
+                
+                // frame->coded_picture_number -= coded_picture_number_base; 
+                // frame->display_picture_number -= display_picture_number_base;
+                // frame->pts -= pts_base;
 
-                //TODO: If it has buffered frames dont load more, wait instead for cue
                 double frame_len_s = 1000000 *inlink->frame_rate.den / inlink->frame_rate.num;
                 // av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] time: frame_len_s: %f %ld  cue_wait: %ld \n", frame_len_s, av_gettime(), s->cue - frame_len_s * 10);
-                
-                if(av_gettime() >= s->cue - frame_len_s *  10){
-                        av_log(ctx, AV_LOG_ERROR, "Waiting for cue... \n");
+
+                if(av_gettime() >= s->cue - frame_len_s *  10 && !output_started){
+                        av_log(ctx, AV_LOG_WARNING, "Waiting for cue... \n");
                         int64_t diff;
                         while ((diff = (av_gettime() - s->cue)) < 0)
                             av_usleep(av_clip(-diff / 2, 100, 1000000));
                 }
 
-                if (av_gettime() >= s->cue){ //TODO: Round it (if now is less than 1 frame before cue then output)
+                if (av_gettime() >= s->cue){ 
                     int ret2 = ff_inlink_consume_frame(inlink, &frame);  //Takes first frame from the buffer 
 
                     if(ret2<0){
-                        av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
+                        av_log(ctx, AV_LOG_ERROR, "Consume failed \n");
                     }
-                    // reading pts based on given segment index -> discurding everything till specific frame and displaying this frame in specific time
+                   
+                    av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Returning frame pts= %ld  %d %d \n", frame->pts, inlink->time_base.num, inlink->time_base.den);
+                    if(!output_started){
+                        output_started = 1;
+                    }
+                    AVFrame *frame2;
 
-                    av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] Returns frame pts= %ld  \n", frame->pts);
-                    if(buffered_frames==0){
-                        buffered_frames++;
+                    av_log(ctx, AV_LOG_WARNING, "===============================\n", buffered_frames);
+                    for(int i =0; i< ff_inlink_queued_frames(inlink); i++){
+                        frame2 = ff_inlink_peek_frame(inlink, i);
+                        av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] %ld %p\n", frame2->pts, frame2);
+
                     }
+                    av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] buffered frames: %d   queued: %zu \n", buffered_frames,  ff_inlink_queued_frames(inlink));
+
+
+                    frame->coded_picture_number -= coded_picture_number_base; 
+                    frame->display_picture_number -= display_picture_number_base;
+                    frame->pts -= pts_base;
+
                     return ff_filter_frame(outlink, frame);
                 }
                 else{
                     buffered_frames ++;
+                    AVFrame *frame2;
+
+                    av_log(ctx, AV_LOG_WARNING, "===============================\n", buffered_frames);
+                    for(int i =0; i< ff_inlink_queued_frames(inlink); i++){
+                        frame2 = ff_inlink_peek_frame(inlink, i);
+                        av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] %ld %p\n", frame2->pts, frame2);
+
+                    }
+                    av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] buffered frames: %d \n", buffered_frames);
                 }
             }
             
