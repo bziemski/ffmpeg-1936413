@@ -34,10 +34,12 @@
 #include "libavutil/opt.h"
 #include "libavutil/dict.h"
 #include "libavutil/time.h"
+#include "libavutil/nw_log.h"
 #include "avformat.h"
 #include "internal.h"
 #include "avio_internal.h"
 #include "id3v2.h"
+#include <stdlib.h>
 
 #define INITIAL_BUFFER_SIZE 32768
 
@@ -214,6 +216,7 @@ typedef struct HLSContext {
     int http_seekable;
     AVIOContext *playlist_pb;
 } HLSContext;
+
 
 static void free_segment_dynarray(struct segment **segments, int n_segments)
 {
@@ -814,7 +817,9 @@ static int parse_playlist(HLSContext *c, const char *url,
             ret = ensure_playlist(c, &pls, url);
             if (ret < 0)
                 goto fail;
-            pls->target_duration = strtoll(ptr, NULL, 10) * AV_TIME_BASE;
+            // pls->target_duration = strtoll(ptr, NULL, 10) * AV_TIME_BASE;
+            double target_duration_s = atof(ptr);
+            pls->target_duration = target_duration_s * AV_TIME_BASE;
         } else if (av_strstart(line, "#EXT-X-MEDIA-SEQUENCE:", &ptr)) {
             ret = ensure_playlist(c, &pls, url);
             if (ret < 0)
@@ -1690,7 +1695,19 @@ static int select_cur_seq_no(HLSContext *c, struct playlist *pls)
         if (c->live_start_index < 0)
             return pls->start_seq_no + FFMAX(pls->n_segments + c->live_start_index, 0);
         else
+        {
+            if(c->live_start_index > pls->start_seq_no + pls->n_segments - 1){
+                // cue_offset = (c->live_start_index - (pls->start_seq_no + pls->n_segments - 1 )) * pls->target_duration;
+                int64_t cue_offset = (c->live_start_index - (pls->start_seq_no + pls->n_segments - 1) )* pls->target_duration;
+                av_log(c, AV_LOG_ERROR, "Requested start index: %ld is not present in the playlist. Latest playlist segment index: %ld Calculated offset: %ld  %d\n", c->live_start_index,pls->start_seq_no + pls->n_segments - 1 ,cue_offset, c->ctx->max_chunk_duration);
+                
+                nw_set(cue_offset);
+                // c->ctx->pb
+            }
+
             return pls->start_seq_no + FFMIN(c->live_start_index, pls->n_segments - 1);
+
+        }
     }
 
     /* Otherwise just start on the first segment. */

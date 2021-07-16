@@ -4,6 +4,51 @@
 #include <stdlib.h>
 #include "common.h"
 #include "nw_log.h"
+#include <sys/types.h>
+#include <unistd.h>
+
+
+static const char* file_path = "globals.txt";
+
+void nw_set(int64_t value){
+    FILE *fp;
+    
+    char pid[20];   
+    get_pid(pid);
+
+    fp = fopen(pid, "w+");
+    fprintf(fp, "%ld", value);
+    fclose(fp);
+}
+
+void get_pid(char* pid_s){
+    int pid = getpid();
+    sprintf(pid_s, "globals_%d.txt", pid);
+}
+
+int64_t nw_get(){
+    char pid[20];   
+    get_pid(pid);
+
+    FILE *fp;
+   
+//    printf(fp, "dflksdlkfsd: %s", pid);
+   fp = fopen(pid, "r");
+    if(!fp){
+        return 0; 
+    } 
+   char buff[255];
+
+   fscanf(fp, "%s", buff);
+    int64_t x = atoi(buff);
+   fclose(fp);
+
+   //TODO: If not found return 0
+    // return 0;
+    return x;
+}
+
+
 
 void get_nw_timestamp(char *out_str)
 {
