@@ -516,8 +516,11 @@ static int decklink_write_video_packet(AVFormatContext *avctx, AVPacket *pkt)
             return AVERROR(EIO);
         }
         
+        int64_t timestamp = av_gettime();
         // av_log(avctx, AV_LOG_DEBUG, "Starting scheduled playback.\n");
-        av_log(avctx, AV_LOG_ERROR, "Starting scheduled playback at %ld.\n", av_gettime());
+        av_log(avctx, AV_LOG_ERROR, "Starting scheduled playback at A %lld.\n", (long long)timestamp);
+        av_log(avctx, AV_LOG_ERROR, "Starting scheduled playback at B %lld.\n", timestamp);
+        av_log(avctx, AV_LOG_ERROR, "Starting scheduled playback at C %I64d.\n", timestamp);
 
         if (ctx->dlo->StartScheduledPlayback(0, ctx->bmd_tb_den, 1.0) != S_OK) {
             av_log(avctx, AV_LOG_ERROR, "Could not start scheduled playback!\n");
