@@ -514,7 +514,10 @@ static int decklink_write_video_packet(AVFormatContext *avctx, AVPacket *pkt)
             av_log(avctx, AV_LOG_ERROR, "Could not end audio preroll!\n");
             return AVERROR(EIO);
         }
-        av_log(avctx, AV_LOG_DEBUG, "Starting scheduled playback.\n");
+        
+        // av_log(avctx, AV_LOG_DEBUG, "Starting scheduled playback.\n");
+        av_log(avctx, AV_LOG_ERROR, "Starting scheduled playback at %ld.\n", av_gettime());
+
         if (ctx->dlo->StartScheduledPlayback(0, ctx->bmd_tb_den, 1.0) != S_OK) {
             av_log(avctx, AV_LOG_ERROR, "Could not start scheduled playback!\n");
             return AVERROR(EIO);
