@@ -23,118 +23,79 @@
 #include "avfilter.h"
 #include "filters.h"
 #include "internal.h"
-#include "libavutil/nw_log.h"
 #include <time.h>
 
 typedef struct CueContext {
     const AVClass *class;
     int64_t first_pts;
     int64_t cue;
-    int64_t preroll;
-    int64_t buffer;
-    int status;
+    int64_t first_timestamp;
+    int64_t start_position;
+    int output_started;
+    int first_coded_picture_number;
+    int first_display_picture_number;
+    int init;
+    int buffered_frames;
 } CueContext;
-
-
-static void to_date(int64_t ts, char* res){
-    time_t t = ts/1000000;
-    
-    const char* format = "%H:%M:%S";
-    struct tm lt;
-    (void) localtime_r(&t, &lt);
-    if (strftime(res, 64, format, &lt) == 0) {
-                return;
-    }
-    return ;
-}
-
-
 
 static int activate(AVFilterContext *ctx)
 {
     AVFilterLink *inlink = ctx->inputs[0];
-    
     AVFilterLink *outlink = ctx->outputs[0];
-    
     CueContext *s = ctx->priv;
-    static int nw_dirty_state = 0;
     FF_FILTER_FORWARD_STATUS_BACK(outlink, inlink);
-    static int coded_picture_number_base = 0;
-    static int display_picture_number_base = 0;
-    static int64_t pts_base = 0;
-
-    static int64_t start_position = -2;
-
-    static int output_started = 0;
     
-    if(start_position == -2){
-        start_position = s->buffer  * inlink->time_base.den / inlink->time_base.num / 1000000; //TODO: Check that
+    if(!s->init){
+        s->start_position = s->first_timestamp * inlink->time_base.den / inlink->time_base.num / 1000000;
+        s->init = 1;
     }
-    //TODO: If start_position is set to -1, just start forwarding frames at cue time
-
-
-    static int buffered_frames = 0;
     
     if (ff_inlink_queued_frames(inlink)) {
         
         AVFrame *frame;
-        AVFrame *frame3;
-
-        av_log(ctx, AV_LOG_WARNING, "++++++++++++++++++++++++++++++++++++\n", buffered_frames);
-        for(int i =0; i< ff_inlink_queued_frames(inlink); i++){
-            frame3 = ff_inlink_peek_frame(inlink, i);
-            av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] %ld %p\n", frame3->pts, frame3);
-        }
-    
         frame = ff_inlink_peek_frame(inlink, ff_inlink_queued_frames(inlink) - 1);
+        av_log(ctx, AV_LOG_DEBUG, "Original frame pts= %ld %p \n", frame->pts, frame);
        
-        av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] Original frame pts= %ld %p \n", frame->pts, frame);
-                
-       
-        if(frame->pts < start_position && !output_started){
-            av_log(ctx, AV_LOG_WARNING, "Got frame pts=%ld Waiting for %ld\n", frame->pts, start_position);
+        if(frame->pts < s->start_position && !s->output_started){
+            av_log(ctx, AV_LOG_INFO, "Got frame pts=%ld Waiting for %ld\n", frame->pts, s->start_position);
             int64_t peeked_frame = frame->pts;
             int ret2 = ff_inlink_consume_frame(inlink, &frame);
             if(ret2<0){
                 av_log(ctx, AV_LOG_ERROR, "Consume failed \n");
             }
-            av_log(ctx, AV_LOG_WARNING, "Discarded frame pts=%ld index=%d\n", frame->pts, frame->coded_picture_number);
+            av_log(ctx, AV_LOG_DEBUG, "Discarded frame pts=%ld index=%d\n", frame->pts, frame->coded_picture_number);
             if(peeked_frame != frame->pts){
-                av_log(ctx, AV_LOG_ERROR, "Discarded wrong frame! Peeked frame pts %ld and discarded %ld \n", peeked_frame, frame->pts);
+                av_log(ctx, AV_LOG_WARNING, "Discarded wrong frame! Peeked frame pts %ld and discarded %ld \n", peeked_frame, frame->pts);
             }
         }
         else{
-            if(!output_started && buffered_frames == 0 && av_gettime() >= s->cue){
-                av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] No frames buffered. Video can play delayed! Time behind: %ld Will try to catch...\n", (av_gettime()-s->cue));
+            if(!s->output_started && s->buffered_frames == 0 && av_gettime() >= s->cue){
+                av_log(ctx, AV_LOG_ERROR, "No frames buffered. Video can play delayed! Time behind: %ld Will try to catch...\n", (av_gettime()-s->cue));
                 s->cue += 1000000 * inlink->frame_rate.den / inlink->frame_rate.num;
-                start_position += inlink->time_base.den * inlink->frame_rate.den / inlink->frame_rate.num / inlink->time_base.num;
+                s->start_position += inlink->time_base.den * inlink->frame_rate.den / inlink->frame_rate.num / inlink->time_base.num;
                 int ret2 = ff_inlink_consume_frame(inlink, &frame);
                 if(ret2<0){
                     av_log(ctx, AV_LOG_ERROR, "Consume failed \n");
                 }
             }
             else{
-
-                if(coded_picture_number_base == 0){
-                    coded_picture_number_base = frame->coded_picture_number;
+                if(!s->first_coded_picture_number){
+                    s->first_coded_picture_number = frame->coded_picture_number;
                 }
-                if(display_picture_number_base == 0){
-                    display_picture_number_base = frame->display_picture_number;
+
+                // TODO: Handle B-Frames!
+                if(!s->first_display_picture_number){
+                    s->first_display_picture_number = frame->display_picture_number;
                 } 
-                if(pts_base == 0){
-                    pts_base = frame->pts;
+                if(!s->first_pts){
+                    s->first_pts = frame->pts;
                 }
-                av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Original frame pts= %ld pts_base = %ld pkt_pos = %ld best_effort_timestamp = %ld pkt_dts = %ld coded_picture_number = %d display_picture_number = %d\n", frame->pts, pts_base, frame->pkt_pos, frame->best_effort_timestamp, frame->pkt_dts, frame->coded_picture_number, frame->display_picture_number);
-                
-                // frame->coded_picture_number -= coded_picture_number_base; 
-                // frame->display_picture_number -= display_picture_number_base;
-                // frame->pts -= pts_base;
 
+                av_log(ctx, AV_LOG_DEBUG, "Original frame pts= %ld first_pts = %ld pkt_pos = %ld best_effort_timestamp = %ld pkt_dts = %ld coded_picture_number = %d display_picture_number = %d\n", frame->pts, s->first_pts, frame->pkt_pos, frame->best_effort_timestamp, frame->pkt_dts, frame->coded_picture_number, frame->display_picture_number);
                 double frame_len_s = 1000000 *inlink->frame_rate.den / inlink->frame_rate.num;
-                // av_log(ctx, AV_LOG_ERROR, "[NW_LOGGING] time: frame_len_s: %f %ld  cue_wait: %ld \n", frame_len_s, av_gettime(), s->cue - frame_len_s * 10);
 
-                if(av_gettime() >= s->cue - frame_len_s *  10 && !output_started){
-                        av_log(ctx, AV_LOG_WARNING, "Waiting for cue... \n");
+                if(av_gettime() >= s->cue - frame_len_s *  10 && !s->output_started){
+                        av_log(ctx, AV_LOG_INFO, "Waiting for cue... \n");
                         int64_t diff;
                         while ((diff = (av_gettime() - s->cue)) < 0)
                             av_usleep(av_clip(-diff / 2, 100, 1000000));
@@ -142,131 +103,27 @@ static int activate(AVFilterContext *ctx)
 
                 if (av_gettime() >= s->cue){ 
                     int ret2 = ff_inlink_consume_frame(inlink, &frame);  //Takes first frame from the buffer 
-
                     if(ret2<0){
                         av_log(ctx, AV_LOG_ERROR, "Consume failed \n");
                     }
                    
-                    av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] Returning frame pts= %ld  %d %d \n", frame->pts, inlink->time_base.num, inlink->time_base.den);
-                    if(!output_started){
-                        output_started = 1;
+                    if(!s->output_started){
+                        s->output_started = 1;
                     }
-                    AVFrame *frame2;
 
-                    av_log(ctx, AV_LOG_WARNING, "===============================\n", buffered_frames);
-                    for(int i =0; i< ff_inlink_queued_frames(inlink); i++){
-                        frame2 = ff_inlink_peek_frame(inlink, i);
-                        av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] %ld %p\n", frame2->pts, frame2);
-
-                    }
-                    av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] buffered frames: %d   queued: %zu \n", buffered_frames,  ff_inlink_queued_frames(inlink));
-
-
-                    frame->coded_picture_number -= coded_picture_number_base; 
-                    frame->display_picture_number -= display_picture_number_base;
-                    frame->pts -= pts_base;
+                    av_log(ctx, AV_LOG_DEBUG, "Buffered frames: %d   queued: %zu \n", s->buffered_frames, ff_inlink_queued_frames(inlink));
+                    frame->coded_picture_number -= s->first_coded_picture_number; 
+                    frame->display_picture_number -= s->first_display_picture_number;
+                    frame->pts -= s->first_pts;
 
                     return ff_filter_frame(outlink, frame);
                 }
                 else{
-                    buffered_frames ++;
-                    AVFrame *frame2;
-
-                    av_log(ctx, AV_LOG_WARNING, "===============================\n", buffered_frames);
-                    for(int i =0; i< ff_inlink_queued_frames(inlink); i++){
-                        frame2 = ff_inlink_peek_frame(inlink, i);
-                        av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] %ld %p\n", frame2->pts, frame2);
-
-                    }
-                    av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] buffered frames: %d \n", buffered_frames);
+                    s->buffered_frames ++;
+                    av_log(ctx, AV_LOG_DEBUG, "Buffered frames: %d \n", s->buffered_frames);
                 }
             }
-            
-
-            
         }
-
-        // av_log(ctx, AV_LOG_WARNING, "[NW_LOGGING] %ld %ld \n", s->cue, cue_startpoint);
-        
-
-        
-        // if (!s->status) {
-        //     char buf[64];
-        //     to_date(s->cue, buf);
-        //     av_log(ctx, AV_LOG_WARNING, "STATE 0 %s \n", buf);
-        //     s->first_pts = pts;
-        //     s->status++;
-        // }
-        // if (s->status == 1) {
-        //     if(nw_dirty_state==0){
-        //         char buf[64];
-        //         to_date(s->cue, buf);
-        //         av_log(ctx, AV_LOG_WARNING, "STATE 1 %s \n", buf);
-        //     }
-            
-        //     if (pts - s->first_pts < s->preroll) {
-        //         av_log(ctx, AV_LOG_WARNING, "consuming preroll frame: %d \n", frame->coded_picture_number);
-
-        //         int ret = ff_inlink_consume_frame(inlink, &frame);
-        //         if (ret < 0)
-        //             return ret;
-        //         return ff_filter_frame(outlink, frame);
-        //     }
-        //     s->first_pts = pts;
-        //     s->status++;
-        //     nw_dirty_state=1;
-        // }
-        // AVFrame *frame2;
-        // if (s->status == 2) {
-        //     if(nw_dirty_state==1){
-        //         char buf[64];
-        //         to_date(s->cue, buf);
-        //         av_log(ctx, AV_LOG_WARNING, "STATE 2 %s \n", buf);
-        //         av_log(ctx, AV_LOG_WARNING, "Buffer: %ld\n", s->buffer);
-        //     }
-        //     frame = ff_inlink_peek_frame(inlink, ff_inlink_queued_frames(inlink) - 1);
-            
-        //     int ret2 = ff_inlink_consume_frame(inlink, &frame2);
-        //     if(ret2<0){
-        //         av_log(ctx, AV_LOG_WARNING, "Consume failed \n");
-        //     }
-        //     pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
-        //     av_log(ctx, AV_LOG_WARNING, "pts: %ld first_pts: %ld \n", pts, s->first_pts);
-        //     if (!(pts - s->first_pts < s->buffer && (av_gettime() - s->cue) < 0))
-        //         s->status++;
-        //     nw_dirty_state=2;
-        // }
-        // if (s->status == 3) {
-        //     if(nw_dirty_state==2){
-        //         char buf[64];
-        //         to_date(s->cue, buf);
-        //         av_log(ctx, AV_LOG_WARNING, "STATE 3 %s \n", buf);
-        //     }
-        //     int64_t diff;
-        //     while ((diff = (av_gettime() - s->cue)) < 0)
-        //         av_usleep(av_clip(-diff / 2, 100, 1000000));
-        //     s->status++;
-        //     nw_dirty_state=3;
-        // }
-        // if (s->status == 4) {
-        //     if(nw_dirty_state==3){
-        //         char buf[64];
-        //         to_date(s->cue, buf);
-        //         av_log(ctx, AV_LOG_WARNING, "STATE 4 %s \n", buf);
-        //         pts = av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q);
-        //         av_log(ctx, AV_LOG_WARNING, "Frame: %d pts: %ld\n", frame->coded_picture_number, pts);
-        //         FF_FILTER_FORWARD_STATUS(inlink, outlink);
-        //         FF_FILTER_FORWARD_WANTED(outlink, inlink);
-        //     }
-        //     else{
-        //         int ret = ff_inlink_consume_frame(inlink, &frame2);
-        //         if (ret < 0)
-        //             return ret;
-        //     }
-            
-        //     nw_dirty_state=4;
-        //     return ff_filter_frame(outlink, frame2);
-        // }
     }
 
     FF_FILTER_FORWARD_STATUS(inlink, outlink);
@@ -279,8 +136,7 @@ static int activate(AVFilterContext *ctx)
 #define FLAGS AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_AUDIO_PARAM | AV_OPT_FLAG_FILTERING_PARAM
 static const AVOption options[] = {
     { "cue", "cue unix timestamp in microseconds", OFFSET(cue), AV_OPT_TYPE_INT64, { .i64 = 0 }, 0, INT64_MAX, FLAGS },
-    { "preroll", "preroll duration in seconds", OFFSET(preroll), AV_OPT_TYPE_DURATION, { .i64 = 0 }, 0, INT64_MAX, FLAGS },
-    { "buffer", "buffer duration in seconds", OFFSET(buffer), AV_OPT_TYPE_INT64, { .i64 = 0 }, 0, INT64_MAX, FLAGS },
+    { "first_timestamp", "Discards frames with a timestamp smaller than first_timestamp in microseconds", OFFSET(first_timestamp), AV_OPT_TYPE_INT64, { .i64 = 0 }, 0, INT64_MAX, FLAGS },
     { NULL }
 };
 

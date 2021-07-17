@@ -2412,10 +2412,10 @@ static int decode_video(InputStream *ist, AVPacket *pkt, int *got_output, int64_
     if(ist->top_field_first>=0)
         decoded_frame->top_field_first = ist->top_field_first;
         
-    //NW_delay_measurement_logging
+    //NW_delay_measurement_logging   7 lines added before
     char ts_buf[256];
     get_nw_timestamp(ts_buf);
-    av_log(NULL, AV_LOG_DEBUG, "%s Frame=%ld Stream=%d decoded. pkt->pts=%d pkt->size=%d pkt->dts=%d \n", ts_buf, ist->frames_decoded, pkt->stream_index, pkt->pts, pkt->size, pkt->dts);
+    av_log(NULL, AV_LOG_DEBUG, "%s Frame=%ld Stream=%d decoded. pkt->pts=%d pkt->size=%d pkt->dts=%d decoded_frame->pts=%d\n", ts_buf, ist->frames_decoded, pkt->stream_index, pkt->pts, pkt->size, pkt->dts, decoded_frame->pts);
     ist->frames_decoded++;
 
     if (ist->hwaccel_retrieve_data && decoded_frame->format == ist->hwaccel_pix_fmt) {
